@@ -1,0 +1,121 @@
+
+require("dotenv").config();
+const Listing = require("../models/listing");
+
+  const  mbxGeocoding = require('@mapbox/mapbox-sdk/services/geocoding');
+  const mapToken  = process.env.MAP_TOKEN;
+  const geocodingClient = mbxGeocoding({ accessToken: mapToken });
+  
+
+
+module.exports.index= async(req,res)=>{
+  const allListings= await Listing.find({});
+  res.render("listings/index",{allListings});
+}
+
+module.exports.renderNewForm= (req,res)=>{
+  res.render("listings/new.ejs");
+}
+
+module.exports.showListing= async(req,res)=>{
+ let{ id} =req.params;
+
+    const listing= await Listing.findById(id)
+    .populate({path: "reviews",
+      populate:{
+        path:"author"
+      },
+    })
+    .populate("owner");
+    if(!listing){
+      req.flash("error","Listing not found!");
+      return res.redirect("/listings");
+    }
+    console.log("Listing found:", listing);
+    res.render("listings/show.ejs",{listing});
+}
+
+
+
+module.exports.createListing = async (req, res, next) => {
+
+  let response = await geocodingClient.forwardGeocode({
+    query: req.body.listing.location,
+    limit: 1
+  })
+  .send();
+
+
+   if (!response.body.features.length) {
+     req.flash("error", "Invalid location provided!");
+     return res.redirect("/listings/new");
+   }
+
+   let url = "https://images.unsplash.com/photo-1501785888041-af3ef285b470?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=60";
+   let filename = "listingimage";
+
+   if (typeof req.file !== "undefined") {
+     url = req.file.secure_url;
+     filename = req.file.originalname;
+   }
+
+   const newListing = new Listing(req.body.listing);
+   newListing.owner = req.user._id;
+   newListing.image={url, filename};
+
+   newListing.geometry = response.body.features[0].geometry;
+    let savedListing = await newListing.save();
+    console.log(savedListing);
+    
+    req.flash("success","Listing created successfully!");
+   res.redirect("/listings");
+};
+
+
+module.exports.renderEditForm = async(req,res)=>{
+  let {id}= req.params;
+  const listing = await Listing.findById(id);
+  if(!listing){
+      req.flash("error","Listing you requested not found!");
+      return res.redirect("/listings");
+    }
+
+    let originalImgageUrl = listing.image.url;
+    originalImgageUrl = originalImgageUrl.replace("/upload","/upload/w_250/");
+  res.render("listings/edit.ejs",{listing, originalImgageUrl});
+}
+
+module.exports.updateListing = async(req,res)=>{
+  
+  let{id}= req.params;
+  let listing = await Listing.findByIdAndUpdate(id,{...req.body.listing});
+
+  // Re-geocode if the location was changed to keep the map accurate
+  if (req.body.listing.location) {
+    let response = await geocodingClient.forwardGeocode({
+      query: req.body.listing.location,
+      limit: 1
+    }).send();
+    if (response.body.features.length) {
+      listing.geometry = response.body.features[0].geometry;
+    }
+  }
+
+  if (typeof req.file !== "undefined") {
+    let url = req.file.secure_url;
+    let filename = req.file.originalname;
+    listing.image = { url, filename };
+  }
+
+  await listing.save();
+  req.flash("success","Listing updated successfully!");
+  res.redirect(`/listings/${id}`);
+}
+
+
+module.exports.destroyListing = async(req,res)=>{
+  let {id} = req.params;
+  let deletedListing = await Listing.findByIdAndDelete(id);
+  req.flash("success","Listing deleted successfully!");
+  res.redirect("/listings");
+}
