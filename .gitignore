@@ -1,10 +1,5 @@
 node_modules/
 .env
+uploads/
 *.log
-package-lock.json
 .DS_Store
-dist/
-build/
-.vscode/
-public/uploads/
-temp/
