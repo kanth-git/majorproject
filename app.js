@@ -69,7 +69,9 @@ const sessionOptions = {
   }
 };
 
- 
+ app.get("/", (req, res) => {
+    res.send("Major Project Backend is Running");
+});
 
 app.use(session(sessionOptions));
 
