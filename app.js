@@ -11,7 +11,11 @@ const ejsMate = require("ejs-mate");
 const wrapAsync = require("./utils/wrapAsync.js");
 const ExpressError= require("./utils/ExpressError.js");
 const session= require("express-session");
-const mongoStore= require("connect-mongo");
+
+let MongoStore = require("connect-mongo");
+if (MongoStore && typeof MongoStore !== 'function' && MongoStore.default) {
+  MongoStore = MongoStore.default;
+}
 const flash = require("connect-flash");
 const passport = require("passport");
 const LocalStrategy = require("passport-local");
@@ -40,7 +44,7 @@ app.use(express.static(path.join(__dirname,"/public")));
 
 const dbUrl = process.env.ATLASDB_URL;
 
-const store = mongoStore.create({
+const store = MongoStore.create({
   mongoUrl: dbUrl,
   crypto:{
     secret:process.env.SECRET,

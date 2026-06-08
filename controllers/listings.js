@@ -90,6 +90,11 @@ module.exports.updateListing = async(req,res)=>{
   let{id}= req.params;
   let listing = await Listing.findByIdAndUpdate(id,{...req.body.listing});
 
+  if(!listing) {
+    req.flash("error", "Listing not found!");
+    return res.redirect("/listings");
+  }
+
   // Re-geocode if the location was changed to keep the map accurate
   if (req.body.listing.location) {
     let response = await geocodingClient.forwardGeocode({
